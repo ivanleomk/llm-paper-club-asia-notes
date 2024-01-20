@@ -16,6 +16,12 @@ class ScaledDotProductAttention:
     def __init__(self, d_k: int, d_v: int, d_input: int) -> None:
         """
         We initialise our Q,K and V matrices
+
+        Note here that
+
+        d_k : Dimensionality of K and Q weight matrix
+        d_v : Dimensionality of V weight matrix
+        d_input : Dimensionality of embedding layer
         """
         self.w_q = np.random.randn(d_input, d_k)
         self.w_k = np.random.randn(d_input, d_k)
