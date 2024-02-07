@@ -75,70 +75,6 @@ class ScaledDotProductAttention(nn.Module):
         lengths of `query` and `key`/`value` may differ. This is because `query` is
         usually projected from the decoder's states, while `key` and `value` are from
         the encoder's states.
-
-        Notations
-        ---------
-        - B   : Batch size
-        - D   : Embedding dimension
-        - H   : Number of heads
-        - d_k : Dimension of the keys    = D // H
-        - d_q : Dimension of the queries = D // H
-        - d_v : Dimension of the values  = D // H
-        - T   : Sequence length for `query`
-        - S   : Sequence length for `key` and `value`
-        - L   : Sequence length for `query`, `key` and `value` generic.
-
-        Note
-        ----
-        -   We use `L` in our notes instead of `T` and `S` since we assume all query,
-            key and value are of same length as we are dealing with self-attention in
-            GPT decoder.
-
-        -   We often denote the dimension of the keys and queries as `d_k` instead of
-            `d_k` and `d_q` respectively because both must have the same dimensionality
-            for them to be multiplied together.
-
-        Parameters
-        ----------
-        query:  A tensor of query vectors representing the set of elements each sequence
-                is seeking to attend to. It contains a batch of sequences, each with a set of
-                vectors across multiple attention heads.
-                    type :  torch.Tensor
-                    shape: `(B, H, T, d_q)` where `d_q = D // H`
-                    shape: `(B, H, L, d_q)` if in pure self-attention (GPT)
-        key  :  A tensor of key vectors that are paired with values to form a mapping. The
-                dot product of a query with these keys determines the attention weight for the
-                corresponding values.
-                    type :  torch.Tensor
-                    shape: `(B, H, S, d_k)` where `d_k = D // H`
-                    shape: `(B, H, L, d_k)` if in pure self-attention (GPT)
-        value: A tensor of value vectors that are aggregated based on the attention
-               weights to form the output of the attention mechanism.
-                    type :  torch.Tensor
-                    shape: `(B, H, S, d_v)` where `d_v = D // H`
-                    shape: `(B, H, L, d_v)` if in pure self-attention (GPT)
-        mask : An optional boolean mask tensor that can be used to mask out certain positions
-               from the attention mechanism. For self-attention, the mask shape is typically
-               `(B, T, T)` or `(B, L, L). For cross-attention, the mask typically has a shape of
-               `(B, T, S)` allowing different target positions to attend to different source positions.
-               Here, `T` is the sequence length of the queries (note `T` is the same for
-               self-attention), `S` is the sequence lengths of the keys and values
-               which could be equal to `T` in self-attention or vary in cross-attention, and
-               `S` is the sequence length of the source (encoder) when using cross-attention.
-
-               However, to cater to the head dimension `H`, right after the `B` dimension, we
-               will need to add (unsqueeze) an dimension to have `(B, 1, T, T)` for
-               self-attention and `(B, 1, T, S)` for cross-attention.
-
-        Returns
-        -------
-        context_vector, attention_weights: Tuple[torch.Tensor, torch.Tensor]
-            The context vectors and the attention weights. The context vectors are the weighted sum
-            of the `value` vectors, representing the information to be attended to.
-            The attention weights represent the attention probabilities.
-
-            - Context Vectors shape:   `(B, T, d_k)` or `(B, H, T, d_k)` or `(B, H, L, d_k)` if in pure self-attention (GPT)
-            - Attention Weights shape: `(B, T, S)` or `(B, H, T, S)` or `(B, H, L, L)` if in pure self-attention (GPT)
         """
         # fmt: off
         d_q               = query.size(dim=-1)
@@ -204,7 +140,7 @@ class MultiHeadedAttention(nn.Module):
         self.context_vector: torch.Tensor
         self.attention_weights: torch.Tensor
 
-        # self._init_weights()
+        self._init_weights()
         # fmt: on
 
     def forward(
@@ -225,13 +161,13 @@ class MultiHeadedAttention(nn.Module):
 
         Parameters
         ----------
-        query:  Although named as query, it is the embeddings `z` from the token_embedding + positional_embedding layer.
+        query:  The query tensor.
                 type:  torch.Tensor
                 shape: (B, S or T, D)
-        key:    Although named as key, it is the embeddings `z` from the token_embedding + positional_embedding layer.
+        key:    The key tensor.
                 type:  torch.Tensor
                 shape: (B, S or T, D)
-        value:  Although named as value, it is the embeddings `z` from the token_embedding + positional_embedding layer.
+        value:  The value tensor.
                 type:  torch.Tensor
                 shape: (B, S or T, D)
         mask:   Mask to be applied to the attention scores.
@@ -243,13 +179,6 @@ class MultiHeadedAttention(nn.Module):
         O:  The output of the multi-headed attention mechanism.
             type:  torch.Tensor
             shape: (B, S or T, D)
-
-        Variables
-        ---------
-        W_Q.weight (D, D)
-        W_K.weight (D, D)
-        W_V.weight (D, D)
-        W_O.weight (D, D)
         """
         # fmt: off
         if mask is not None:
@@ -352,4 +281,3 @@ if __name__ == "__main__":
     z = torch.rand(B, L, D)
     output = mha(query=z, key=z, value=z, mask = None)
     assert output.shape == (B, L, D)
-    print(output.shape)
