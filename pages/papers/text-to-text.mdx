@@ -1,0 +1,141 @@
+# Exploring the Limits Of Transfer Learning with a Unified Text To Text Transformer
+
+> This paper explores how we can exploit transfer learning to fine-tune a general transformer trained on the C4 Dataset in order to beat state of the art datasets and benchmarks.
+
+## Dataset
+
+### C4
+
+C4 is a short acronym for the Colossal Clean Crawled Corpus and is a cleaned version of the Common Crawl Web. They implemented the following filters.
+
+- **Punctuation** : Only lines that ended in a terminal punctuation were kept
+- **Minimum Length** : Pages had to have more than 3 sentences and at least 5 lines
+- **Obsence Content** : They removed pages with words that were known to be associated with pornographic or obsene content
+- **Irrelevant Content** : They removed all mentions of lorem ipsum content
+- **Non rendered Pages** : Pages that had warnings indicating that javascript needed to be removed. They also removed all code pages 
+- **Citations**: All citations were removed 
+- **Policy Notices** : All lines containing any privacy policies 
+
+They also performed a further de-duplication on any three-sentence span occuring more than once in the dataset. This dataset helped in boosting performance across the benchmarks.
+
+![Benchmarks](/dataset_benchmark.png)
+
+We can make the following observations 
+
+1. C4 Filtering helps a lot - we get a lot more performance for a significantly smaller dataset. Without the filtering, a model trained on the Common Crawl gets the worst performance.
+
+2. Domain Specific text corpus does increase the performance of specific models (Eg. using the RealNews-like data set for pre-training conferred an increase from 68.16 to 73.72 on the Exact Match score for ReCoRD, a data set that measures reading comprehension on news articles. )
+
+> A drawback to only pre-training on a single domain is that the resulting data sets are often substantially smaller. Similarly, while the WebText-like variant performed as well or better than the C4 data set in our baseline setting, the Reddit-based filtering produced a data set that was about 40× smaller than C4 despite being based on 12× more data from Common Crawl
+
+### Unsupervised Dataset Experiments
+
+The atuhors of the paper performed a good amount of experimentation with the data avaliable on hand. 
+
+![Experiments](/t5_unsupervised_exploration.png)
+
+Notably, there were these 4 hyper-parameters that they explored to see how it affected the final model performance.
+
+- `Task`: What should the model do?
+- `Corruption Strategy` : How should we make the task harder?
+- `Corruption Rate` : How much of the data should we modify?
+- `Corrupted Span Length` : How much continous chunks of data should we modify?
+
+#### Task
+
+They compared three separate tasks 
+- Prefix Language Modelling : Pass in some text and get the model to predict the rest 
+- Masked Language Modelling : Pass in some text with some chunks of it masked, get the model to predict the complete sequen
+- Deshuffling : Mix up the order of the words, get the model to unscramble the sentence
+
+![Tasks](/t5_tasks.png)
+![Corruption Strategy](/t5_corruption_strategy.png)
+
+
+We can see that in general the BERT-style masked language modelling task performs the best out of the three tasks and the best corruption strategy can be seen below.
+
+![Sample Corruption](/t5_replace_corrupted_span.png)
+
+
+
+#### Corruption Rate 
+
+Corruption Rate mainly deals with how much of the text do we remove and mask. They experimented with a few different options
+
+![Corruption Rates](/t5_corruption_rate.png)
+
+We can see here that it performs best at the 10-20% range where we remove 10-20% of all the tokens inside the span itself.
+
+#### Corruption Continous Span
+
+![Corruption Span](/t5_corruption_span.png)
+
+The last bit of experimentation was on how many continous tokens should constitute a single span. Prior to this, the approach the authors used was simpler - just make an i.i.d. decision for each input token as to whether to corrupt it or not. 
+
+> For example, if we are processing a sequence of 500 tokens and we have specified that 15% of tokens should be corrupted and that there should be 25 total spans, then the total number of corrupted tokens would be 500×0.15 = 75 and the average span length would be 75/25 = 3.
+
+### Multi-Task Learning in the Dataset
+
+There were two main questions that they were curious about 
+
+1. How should we configure a dataset for multi-task learning : How to mix this?
+2. How much can we repeat the data for under-represented data points
+
+#### Multi-Task Example Mixing
+
+When thinking about configuring a dataset for multi-task learning, the key difficulty is the mixture of examples. There are a few ways we can do this 
+
+- **Proportional Mixing**: We sample from the example based on the percentage of the dataset the example comprises.
+- **Proportional Mixing with Artifical Limit** : We sample based on the percentage of the dataset the example comrpises and we set an artifical limit of $K$.
+- **Temperature-Scaled Mixing** : We convert the probabilities by raising the probability to `1/r` and then renormalizing the rates. We set an artifical limit of $K$ and sample from the dataset using these probabilities.
+
+![Multitask Learning](/t5_multitask_learning.png)
+
+Tasks were evaluated by using `n-1` tasks where `n` was the number of tasks that we had examples for. We then fine-tune on the final task and evaluate the model performance. Key takeaways were that in general multi-task training underperforms pre-training followed by fine-tuning. The theory is that this results in the model not having seen enough unlabelled data to learn general-purpose language capabilities.
+
+#### Repeating Data
+
+In a data constrained environment, how many times can the model see the same data before it overfits?
+
+![T5 Data](/t5_data_overfit.png)
+
+As expected, performance degrades as the data set size shrinks. We suspect this may be due to the fact that the model begins to memorize the pre-training data set. This suggests that some amount of repetition of pre-training data might not be harmful.
+
+This can be seen by the trainig loss below where repeating the dataset more times results in the model effectively memorizing the data since the train loss decreases significantly.
+
+![T5 Repeat Training Loss](/t5_training_loss.png)
+
+
+## Tasks 
+
+They chose a few tasks for benchmarking the model and utilise a given `prefix` in order to get the model to perform specific tasks.
+
+![/t5_text_to_text.png](/t5_text_to_text.png)
+
+We can see that certain prefixes such as 
+
+- `summarize`
+- `stsb`
+
+are used to help condition the final text generation output of the model itself. This is why the model is known as a text to text model. 
+
+The specific tasks that were chosen to benchmark the model were 
+
+1. `Sentence Acceptability`
+2. `Sentiment Analysis`
+3. `Paraphrasing/Sentence Similarity`
+4. `Natural Language Inference`
+5. `Coreference Resolution`
+
+and others
+
+## Model Implementation 
+
+### Attention Mask
+
+![t5_text_to_text.png](/t5_attention_masks.png)
+
+Instead of using a causal mask, we use fully-visible masking during the prefix portion of the sequence. This allows for the model to better understand the task at hand.
+
+
+
