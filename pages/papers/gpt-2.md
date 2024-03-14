@@ -488,8 +488,8 @@ suggests, it is a continuation of the GPT-1 model with some minor modifications.
   - The GPT-2 paper introduces a modification to the standard weight
     initialization for the model's residual layers. Specifically, the
     weights are scaled by a factor of
-    $\frac{1}{\sqrt{N_{\text{decoder\_blocks}}}}$, where
-    $N_{\text{decoder\_blocks}}$ represents the number of blocks (or layers)
+    $\frac{1}{\sqrt{N_{\text{decoderblocks}}}}$, where
+    $N_{\text{decoderblocks}}$ represents the number of blocks (or layers)
     in the Transformer's decoder.
 
     The rationale, as quoted from the paper: _"A modified initialization
@@ -499,7 +499,7 @@ suggests, it is a continuation of the GPT-1 model with some minor modifications.
     block's output. This is to ensure that the signal is neither amplified
     nor diminished as it passes through the block. As the model depth
     increases, the activations get added/acculumated, and hence the scaling
-    factor is $\frac{1}{\sqrt{N_{\text{decoder_blocks}}}}$, to scale it
+    factor is $\frac{1}{\sqrt{N_{\text{decoderblocks}}}}$, to scale it
     down.
 
   - Clearly, we can see the empahsis on model stability. In training large
