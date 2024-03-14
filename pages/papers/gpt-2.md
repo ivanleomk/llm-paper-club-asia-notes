@@ -317,14 +317,14 @@ $\mathcal{G}$ theoretically should not only learn the conditional probability
 distribution:
 
 $$
-\mathbb{P}(x_t \mid x_{<t} ; \boldsymbol{\Theta})
+\mathbb{P}(x_t \mid x_{\le t} ; \boldsymbol{\Theta})
 $$ 
 
 but also learn
 the conditional probability distribution:
 
 $$
-\mathbb{P}(x_t \mid x_{<t} ; \boldsymbol{\Theta}, \mathcal{T})
+\mathbb{P}(x_t \mid x_{\le t} ; \boldsymbol{\Theta}, \mathcal{T})
 $$
 
 where
