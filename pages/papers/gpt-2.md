@@ -317,14 +317,14 @@ $\mathcal{G}$ theoretically should not only learn the conditional probability
 distribution:
 
 $$
-\mathbb{P}(x_t \mid x_{\le t} ; \boldsymbol{\Theta})
+\mathbb{P}(x_t \mid x_{\< t} ; \boldsymbol{\Theta})
 $$ 
 
 but also learn
 the conditional probability distribution:
 
 $$
-\mathbb{P}(x_t \mid x_{\le t} ; \boldsymbol{\Theta}, \mathcal{T})
+\mathbb{P}(x_t \mid x_{\< t} ; \boldsymbol{\Theta}, \mathcal{T})
 $$
 
 where
@@ -488,8 +488,8 @@ suggests, it is a continuation of the GPT-1 model with some minor modifications.
   - The GPT-2 paper introduces a modification to the standard weight
     initialization for the model's residual layers. Specifically, the
     weights are scaled by a factor of
-    $\frac{1}{\sqrt{N_{\text{decoder_blocks}}}}$, where
-    $N_{\text{decoder_blocks}}$ represents the number of blocks (or layers)
+    $\frac{1}{\sqrt{N_{\text{decoder\_blocks}}}}$, where
+    $N_{\text{decoder\_blocks}}$ represents the number of blocks (or layers)
     in the Transformer's decoder.
 
     The rationale, as quoted from the paper: _"A modified initialization
