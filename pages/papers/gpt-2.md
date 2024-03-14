@@ -368,17 +368,7 @@ In the figure below, we can see examples of naturally occurring demonstrations
 of English to French and French to English translation found throughout the
 WebText training set.
 
-```{figure} ./assets/gpt-2-table-1.png
----
-name: decoder-concept-gpt-2-table-1
----
-
-Examples of naturally occurring demonstrations of English to French and French
-to English translation found throughout the WebText training set.
-
-**Image Credit:**
-[Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)
-```
+![Examples of naturally occurring demonstrations of English to French and French to English translation found throughout the WebText training set.](../../public/gpt-2-table-1.png)
 
 ### 2.1. Training Dataset
 
@@ -457,3 +447,77 @@ Further Readings:
 - [https://github.com/openai/tiktoken](https://github.com/openai/tiktoken)
 
 ### 2.3. Model
+
+The GPT-2 architecture is a **_transformer_**-based model, and as the name
+suggests, it is a continuation of the GPT-1 model with some minor modifications.
+
+#### Key 1. GPT-2 is a Continuation of GPT-1 with Self-Attention Mechanisms (1)
+
+- GPT-2 utilizes a **Transformer** architecture {cite}`vaswani2017attention`
+  as its backbone, which is distinguished by **_self-attention mechanisms_**.
+  This architecture empowers the model to capture complex dependencies and
+  relationships within the data.
+
+#### Key 2. Modifications from GPT-1 and Model Stability (1)
+
+- Modifications from GPT-1 include:
+
+  - **Layer normalization** is repositioned to the **_input_** of each
+    sub-block, mirroring a **_pre-activation residual network_**. This
+    modification is believed to offer training stability and model
+    performance. By normalizing the inputs to each sub-block, it is
+    conjectured to alleviate issues tied to **_internal covariate shift_**,
+    thus aiding in smoother and potentially faster training.
+  - GPT-2 introduces an **_additional layer normalization step_** that is
+    executed **_after the final self-attention block_** within the model.
+    This additional normalization step can help ensure that the outputs of
+    the transformer layers are normalized before being passed to subsequent
+    layers or used in further processing, further contributing to model
+    stability.
+  - The GPT-2 paper introduces a modification to the standard weight
+    initialization for the model's residual layers. Specifically, the
+    weights are scaled by a factor of
+    $\frac{1}{\sqrt{N_{\text{decoder_blocks}}}}$, where
+    $N_{\text{decoder_blocks}}$ represents the number of blocks (or layers)
+    in the Transformer's decoder.
+
+    The rationale, as quoted from the paper: _"A modified initialization
+    which accounts for the accumulation on the residual path with model
+    depth is used"_ {cite}`radford2019language`, is to ensure that the
+    variance of the input to the block is the same as the variance of the
+    block's output. This is to ensure that the signal is neither amplified
+    nor diminished as it passes through the block. As the model depth
+    increases, the activations get added/acculumated, and hence the scaling
+    factor is $\frac{1}{\sqrt{N_{\text{decoder_blocks}}}}$, to scale it
+    down.
+
+  - Clearly, we can see the empahsis on model stability. In training large
+    language models, **numerical stability** is paramount; the cost of
+    training is significantly high, with every loss and gradient spike that
+    fails to recover necessitating a return to a previous checkpoint,
+    resulting in substantial GPU hours and potentially tens of thousands of
+    dollars wasted.
+  - The model's **vocabulary** is expanded to 50,257 tokens.
+  - The context window size is increased from 512 to 1024 tokens, enhancing
+    the model's ability to maintain coherence over longer text spans.
+  - A larger batch size of 512, GPT-2 benefits from more stable and
+    effective gradient estimates during training, contributing to improved
+    learning outcomes.
+
+#### GPT-2 Variants
+
+To this end, we encapsulate some key parameters in
+the table below, which provides specifications for
+several GPT-2 variants, distinguished by their scale.
+
+| Parameters | Layers | d_model | H   | d_ff | Activation | Vocabulary Size | Context Window |
+| ---------- | ------ | ------- | --- | ---- | ---------- | --------------- | -------------- |
+| 117M       | 12     | 768     | 12  | 3072 | GELU       | 50,257          | 1024           |
+| 345M       | 24     | 1024    | 16  | 4096 | GELU       | 50,257          | 1024           |
+| 762M       | 36     | 1280    | 20  | 5120 | GELU       | 50,257          | 1024           |
+| 1542M      | 48     | 1600    | 25  | 6400 | GELU       | 50,257          | 1024           |
+
+See
+[The Implementation of Generative Pre-trained Transformers (GPT)](https://www.gaohongnan.com/transformer/decoder/implementation.html)
+for a more comprehensive walkthrough of the GPT-2 model architecture, annotated
+with code.
