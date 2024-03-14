@@ -314,9 +314,20 @@ through conditional probability distributions.
 In the GPT-2 paper, _Language Models are Unsupervised Multitask Learners_, the
 authors introduced the concept of _conditional on task_ where the GPT model
 $\mathcal{G}$ theoretically should not only learn the conditional probability
-distribution $\mathbb{P}(x_t \mid x_{<t} ; \boldsymbol{\Theta})$ but also learn
-the conditional probability distribution
-$\mathbb{P}(x_t \mid x_{<t} ; \boldsymbol{\Theta}, \mathcal{T})$ where
+distribution:
+
+$$
+\mathbb{P}(x_t \mid x_{<t} ; \boldsymbol{\Theta})
+$$ 
+
+but also learn
+the conditional probability distribution:
+
+$$
+\mathbb{P}(x_t \mid x_{<t} ; \boldsymbol{\Theta}, \mathcal{T})
+$$
+
+where
 $\mathcal{T}$ is the task that the model should implicitly learn
 {cite}`radford2019language`. This is a powerful concept because if such a
 hypothesis is correct, then the GPT model $\mathcal{G}$ can indeed be a
