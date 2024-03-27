@@ -68,7 +68,7 @@ innovation was to void the supervised fine-tuning step, and instead, they
 demonstrated that GPT-2 could be used directly on a wide range of NLU tasks
 directly, with what they termed as the _zero-shot transfer_. The motivation is
 that the authors think that foundational language models should be competent
-generalists, rather than narrowly experts {cite}`radford2019language`. They call
+generalists, rather than narrowly experts[^10]. They call
 for the need to shift the language model paradigm to one that is generic enough
 to handle NLU tasks without the need to curate specific training data for each
 specific task.
@@ -152,7 +152,7 @@ GPT-2 paper.
   simultaneously_**, the model is enabled to leverage **_generalizable latent
   space embeddings and representations_** to excel across various tasks.
 - It was further pointed out that recent work in the field utilizes, for
-  example, **_10 (dataset, objective) pairs_** {cite}`mccann2018natural` to
+  example, **_10 (dataset, objective) pairs_**[^6] to
   train a singular model (an approach known as
   [**_meta-learning_**](<https://en.wikipedia.org/wiki/Meta-learning_(computer_science)>)).
   This implies that:
@@ -292,8 +292,7 @@ approximates the true parameter space $\boldsymbol{\Theta}$.
 
 #### Key 2. Decompose Joint Distributions as Conditional Distributions via Chain Rule (2)
 
-The joint probability of a sequence in natural language, **inherently ordered**
-{cite}`radford2019language`, can be factorized into the product of conditional
+The joint probability of a sequence in natural language, **inherently ordered**[^10], can be factorized into the product of conditional
 probabilities of each token in the sequence using the
 [**chain rule of probability**](<https://en.wikipedia.org/wiki/Chain_rule_(probability)>).
 This approach not only enables **_tractable sampling_** from and
@@ -301,7 +300,7 @@ This approach not only enables **_tractable sampling_** from and
 $\mathbb{P}(\mathbf{x} ; \boldsymbol{\Theta})$ but also facilitates modeling
 conditionals in forms such as
 $\mathbb{P}(x_{t-k} \ldots x_t \mid x_1 \ldots x_{t-k-1} ; \boldsymbol{\Theta})$
-{cite}`radford2019language`. Given a corpus $\mathcal{S}$ with $N$ sequences,
+[^10]. Given a corpus $\mathcal{S}$ with $N$ sequences,
 the likelihood function
 $\hat{\mathcal{L}}(\mathcal{S} ; \hat{\boldsymbol{\Theta}})$ represents the
 likelihood of observing these sequences. The ultimate objective is to maximize
@@ -327,8 +326,7 @@ $$
 $$
 
 where
-$\mathcal{T}$ is the task that the model should implicitly learn
-{cite}`radford2019language`. This is a powerful concept because if such a
+$\mathcal{T}$ is the task that the model should implicitly learn[^10]. This is a powerful concept because if such a
 hypothesis is correct, then the GPT model $\mathcal{G}$ can indeed be a
 multi-task learner, and can be used directly on a wide range of NLU tasks
 without the need for supervised fine-tuning for downstream domain-specific
@@ -336,16 +334,13 @@ tasks.
 
 In practice, the authors mentioned that task conditioning is often implemented
 at an architectural level, via task specific encoder and decoder in the paper
-[_One Model To Learn Them All_](https://arxiv.org/abs/1706.05137)
-{cite}`kaiser2017model`, for instance, or at an algorithmic level, such as the
+[_One Model To Learn Them All_](https://arxiv.org/abs/1706.05137)[^7], for instance, or at an algorithmic level, such as the
 inner and outer loop optimization framework, as seen in the paper
-[_Model-Agnostic Meta-Learning for Fast Adaptation of Deep Networks_](https://arxiv.org/abs/1703.03400)
-{cite}`finn2017modelagnostic`.
+[_Model-Agnostic Meta-Learning for Fast Adaptation of Deep Networks_](https://arxiv.org/abs/1703.03400)[^8].
 
 However, the authors further mentioned that without task-specific architectural
 changes, one can leverage the sequential nature of the natural language space
-where we can construct a tasks, inputs and outputs all as a sequence of symbols
-{cite}`radford2019language`. For example, a translation task can be formulated
+where we can construct a tasks, inputs and outputs all as a sequence of symbols[^10]. For example, a translation task can be formulated
 as a sequence of symbols via
 `(translate to french, english sequence, french sequence)`, where the model can
 now learn to also condition on the task `(translate to french)` in addition to
@@ -361,7 +356,7 @@ demonstrated that they want to do away with the supervised fine-tuning phase via
 an interesting hypothesis, that **optimizing the unsupervised objective is the
 same as optimizing the supervised objective** because the _global minimum_ of
 the unsupervised objective is the same as the _global minimum_ of the supervised
-objective {cite}`radford2019language`.
+objective[^10].
 
 #### Key 5. Large Language Models has Capacity to Infer and Generalize (5)
 
@@ -371,8 +366,7 @@ communication. The example that I provided on the french-to-english translation
 would bound to exist naturally in the internet. They speculate that if the
 language model is **large** enough in terms of **capacity**, then it should be
 able to learn to perform the tasks demonstrated in natural language sequences in
-order to better predict them, regardless of their method of procurement
-{cite}`radford2019language`.
+order to better predict them, regardless of their method of procurement[^10].
 
 In the figure below, we can see examples of naturally occurring demonstrations
 of English to French and French to English translation found throughout the
@@ -463,7 +457,7 @@ suggests, it is a continuation of the GPT-1 model with some minor modifications.
 
 #### Key 1. GPT-2 is a Continuation of GPT-1 with Self-Attention Mechanisms (1)
 
-- GPT-2 utilizes a **Transformer** architecture {cite}`vaswani2017attention`
+- GPT-2 utilizes a **Transformer** architecture[^1]
   as its backbone, which is distinguished by **_self-attention mechanisms_**.
   This architecture empowers the model to capture complex dependencies and
   relationships within the data.
@@ -493,7 +487,7 @@ suggests, it is a continuation of the GPT-1 model with some minor modifications.
 
     The rationale, as quoted from the paper: _"A modified initialization
     which accounts for the accumulation on the residual path with model
-    depth is used"_ {cite}`radford2019language`, is to ensure that the
+    depth is used"_[^10], is to ensure that the
     variance of the input to the block is the same as the variance of the
     block's output. This is to ensure that the signal is neither amplified
     nor diminished as it passes through the block. As the model depth
@@ -532,41 +526,42 @@ See
 for a more comprehensive walkthrough of the GPT-2 model architecture, annotated
 with code.
 
-## Citations
+[^1]:
+    A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez,
+    Ł. Kaiser, and I. Polosukhin.
+    ["Attention is all you need"](https://arxiv.org/abs/1706.03762). In Advances
+    in Neural Information Processing Systems, pp. 5998–6008, 2017.
 
-- [1] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez,
-  Ł. Kaiser, and I. Polosukhin.
-  ["Attention is all you need"](https://arxiv.org/abs/1706.03762). In Advances
-  in Neural Information Processing Systems, pp. 5998–6008, 2017.
-- [2] I. Loshchilov and F. Hutter,
-  ["Decoupled weight decay regularization"](https://arxiv.org/abs/1711.05101),
-  arXiv preprint arXiv:1711.05101, [Submitted on 14 Nov 2017 (v1), last
-  revised 4 Jan 2019 (this version, v3)].
-- [3] D. P. Kingma and J. Ba,
-  ["Adam: A Method for Stochastic Optimization"](https://arxiv.org/abs/1412.6980),
-  arXiv preprint arXiv:1412.6980, [Submitted on 22 Dec 2014 (v1), last revised
-  30 Jan 2017 (this version, v9)].
-- [4] L. Liu, H. Jiang, P. He, W. Chen, X. Liu, J. Gao, and J. Han,
-  ["On the Variance of the Adaptive Learning Rate and Beyond"](https://arxiv.org/abs/1908.03265),
-  arXiv preprint arXiv:1908.03265, [Submitted on 8 Aug 2019 (v1), last revised
-  26 Oct 2021 (this version, v4)].
-- [5] A. Zhang, Z. C. Lipton, M. Li, and A. J. Smola,
-  ["Chapter 9. Recurrent Neural Networks"](https://d2l.ai/chapter_recurrent-neural-networks/index.html)
-  in Dive into Deep Learning, Cambridge University Press, 2023.
-- [6] A. Zhang, Z. C. Lipton, M. Li, and A. J. Smola,
-  ["Chapter 11. Attention Mechanisms and Transformers"](https://d2l.ai/chapter_attention-mechanisms-and-transformers/index.html)
-  in Dive into Deep Learning, Cambridge University Press, 2023.
-- [7] D. Jurafsky and J. H. Martin,
-  ["Chapter 3. N-gram Language Models"](https://web.stanford.edu/~jurafsky/slp3/3.pdf)
-  in Speech and Language Processing, 3rd ed., Pearson, 2023. pp. 32-59.
-- [8] D. Jurafsky and J. H. Martin,
-  ["Chapter 10. Transformers and Large Language Models"](https://web.stanford.edu/~jurafsky/slp3/10.pdf)
-  in Speech and Language Processing, 3rd ed., Pearson, 2023. pp. 213-241.
-- [9] A. Radford, K. Narasimhan, T. Salimans, and I. Sutskever,
-  ["Improving Language Understanding by Generative Pre-Training"](https://s3-us-west-2.amazonaws.com/openai-assets/research-covers/language-unsupervised/language_understanding_paper.pdf).
-- [10] A. Radford, J. Wu, R. Child, D. Luan, D. Amodei, and I. Sutskever,
-  ["Language Models are Unsupervised Multitask Learners"](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf).
+[^2]:
+    I. Loshchilov and F. Hutter,
+    ["Decoupled weight decay regularization"](https://arxiv.org/abs/1711.05101),
+    arXiv preprint arXiv:1711.05101, [Submitted on 14 Nov 2017 (v1), last
+    revised 4 Jan 2019 (this version, v3)].
 
+[^3]:
+    D. P. Kingma and J. Ba,
+    ["Adam: A Method for Stochastic Optimization"](https://arxiv.org/abs/1412.6980),
+    arXiv preprint arXiv:1412.6980, [Submitted on 22 Dec 2014 (v1), last revised
+    30 Jan 2017 (this version, v9)].
+
+[^4]:
+    L. Liu, H. Jiang, P. He, W. Chen, X. Liu, J. Gao, and J. Han,
+    ["On the Variance of the Adaptive Learning Rate and Beyond"](https://arxiv.org/abs/1908.03265),
+    arXiv preprint arXiv:1908.03265, [Submitted on 8 Aug 2019 (v1), last revised
+    26 Oct 2021 (this version, v4)].
+
+[^5]:
+    A. Zhang, Z. C. Lipton, M. Li, and A. J. Smola,
+    ["Chapter 9. Recurrent Neural Networks"](https://d2l.ai/chapter_recurrent-neural-networks/index.html)
+    in Dive into Deep Learning, Cambridge University Press, 2023.
+
+[^6]: Bryan McCann, Nitish Shirish Keskar, Caiming Xiong, and Richard Socher. ["The natural language decathlon: multitask learning as question answering"](https://arxiv.org/abs/1806.08730). 2018. arXiv:1806.08730.
+[^7]: Lukasz Kaiser, Aidan N. Gomez, Noam Shazeer, Ashish Vaswani, Niki Parmar, Llion Jones, and Jakob Uszkoreit. ["One model to learn them all"](https://arxiv.org/abs/1706.05137). 2017. arXiv:1706.05137.
+[^8]: Chelsea Finn, Pieter Abbeel, and Sergey Levine. ["Model-agnostic meta-learning for fast adaptation of deep networks"](https://arxiv.org/abs/1703.03400). 2017.
 [^9]:
     A. Radford, K. Narasimhan, T. Salimans, and I. Sutskever,
     ["Improving Language Understanding by Generative Pre-Training"](https://s3-us-west-2.amazonaws.com/openai-assets/research-covers/language-unsupervised/language_understanding_paper.pdf).
+
+[^10]:
+    A. Radford, J. Wu, R. Child, D. Luan, D. Amodei, and I. Sutskever,
+    ["Language Models are Unsupervised Multitask Learners"](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf).
