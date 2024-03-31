@@ -1,32 +1,18 @@
 # Language Models are Unsupervised Multitask Learners
 
-## Motivation
+> Utilizing GPT-2, this paper matched serveral state of the art models across various benchmark without using custom architecture or dataset adjustments, solely through ample model capacity and data.
+> 
+> Original Paper: https://openai.com/research/better-language-models
 
-The problem that GPT-2 aims to solve is to demonstrate that language models,
-given **_large_** enough capacity in terms of parameters, and **_large_** enough
-**_unlabeled and high-quality_** text data, can solve specialized natural
-language processing tasks such as question answering, translation, and
-summarization, in a
-[**_zero-shot_**](https://en.wikipedia.org/wiki/Zero-shot_learning) manner -
-without the need for task-specific architectures or supervised fine-tuning.
+## Introduction
 
-The emphasis on the _large and high-quality_ text data cannot be understated as
-the authors are hinging on the fact that the dataset is so **_diverse_**, and
-therefore _bound_ to have examples of the _specialized_ tasks that the model can
-learn from.
+Language Models can solve specialized language tasks without the need for task-specific architectures or fine-tuning given enough parameters and pre-training datasets. By having large and high quality text data, these models can tackle challenges such as question answering, translation and summarization. The more diverse a dataset is, the more likely it contains examples of the specialized task that the model can learn from.
 
-For example, if we are looking at translation tasks, then the data is bound to
-have somewhat **sequential** and **natural occuring translation text** such as:
+For instance, A diverse dataset would contain examples of **sequential and natural occuring translation tasks** such as `The translation of the french sentence 'As-tu aller au cinéma?' to english is 'Did you go to the cinema?'`. This allows the model to generalize well to these tasks without task-specific supervised fine-tuning.
 
-```python
-The translation of the french sentence 'As-tu aller au cine ́ma?' to english is 'Did you go to the cinema?'.
-```
+This paper uses GPT-2 to illustrate this point. GPT-2 is trained using a large corpus of text data where it tries to predict the next token in the sequence. This is a [**_self-supervised_**](https://en.wikipedia.org/wiki/Self-supervised_learning) process since it is done without the use of manual labels by human annotators. During inference, GPT-2 generates text sequentially from an initial prompt with each predicted token being fed into the model again to predict future tokens. As a result, it is known as an [**_autoregressive_**](https://en.wikipedia.org/wiki/Autoregressive_model), model.
 
-The model can learn from such examples and generalize to perform well on the
-translation task via the
-[**_autoregressive_**](https://en.wikipedia.org/wiki/Autoregressive_model),
-[**_self-supervised_**](https://en.wikipedia.org/wiki/Self-supervised_learning)
-learning paradigm without the need for supervised fine-tuning.
+Ultimately, GPT-2's improvements over GPT-1 were attributed to a larger parameter count, a new unlabelled corpus WebText and the removal of task-specific fine-tuning.
 
 ## From GPT-1 to GPT-2
 
