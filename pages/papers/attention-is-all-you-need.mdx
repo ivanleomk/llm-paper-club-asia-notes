@@ -1,3 +1,223 @@
 # Attention Is All You need
 
 > Original Paper: https://arxiv.org/abs/1706.03762
+
+# Introduction
+
+These are the notes which I took on the paper - Attention is all you need. PRs are welcome if I've made any errors. 
+
+## Motivation
+
+> Another intuitive way we can think of transformers are as classifiers where they determine what is the most likely next token
+
+Transformers were introduced in 2017 in Attention Is All You Need and provided a strong alternative to RNNs. There are three main advantages of using transformers as compared to RNNs
+
+1. **Parallelisation**: RNNs are sequential in nature, therefore the runtime of your training/inference scales linearly with the length of your sequence. This makes it difficult to effectively batch training/inference calls 
+2. **Performance** : Because RNNs process information by sequentially updating a hidden state, this makes it difficult for the model to quick access past and future state. Lookup is `O(n)` by definition
+3. **Training** : Because of the complex computational graphs involved and the fact that the # of computations increases significantly with the length of the sequence, RNN trainings often suffer from vanishing or exploding gradients.
+
+Transformers fix this because of how they process input.
+
+1. **Parallelisation** : Transformers can process large batches in parallel instead of depending on `n` sequential iterations to generate a prediction for a sequence of length `n`
+2. **Lookup** : Transformers can refer to past state in constant lookup time using the attention mechanism 
+3. **Training** : All training examples can be computed in a single forward pass with a single batch.
+
+Here are two diagrams which illustrate the training and inference process for transformers.
+
+![Transformer Inference](/transformer-inference.png)
+![Transformer Training](/transformer-training.png)
+
+
+The transformer provides a useful alternative and outperforms the RNN for an equivalent FLOPs budget when tested against the EN-DE benchmark and the EN-FR benchmark.
+
+![Transformer Performance](/performance-model.png)
+
+> Note here that the base model performs better than all other models on the EN-DE with a compute budget that is 10-100x smaller. The larger model does so on the EN-FR similarly with a compute budget that is around 10-100x smaller and with better performance than even a ConvS2S Ensemble
+
+## Components
+
+Now let's walk through the components of the Transformer
+
+![Transformer Architecture](/transformer-architecture.png)
+
+There are a few key components of the Transformer that merit attention
+
+1. **Tokeniser**: How we transform our target and source sentence into a representation that our model can understand
+2. **Scaled-Dot Product Attention** **and Multi-Head Attention** : How does our model learn to extract/understand information from the given source and target sentences
+3. **Encoder and Decoder :** What functions do they play in the transformer architecture?
+4. **Token Choice :** Beam Search and why we might want to use it
+5. **Training Regulari**s**ation :** Label Smoothing and other forms of regularisation
+
+### Tokenizers and Embeddings
+
+> You can play with different tokenisers at this [webpage](https://gpt-tokenizer.dev/) which visually shows you how a target sentence would be broken down into individual tokens
+> 
+
+Tokenisers transform a text string into a sequence of tokens and are trained with the dataset. We can think of a tokeniser as a program that maps a sentence into a list of pre-defined mappings.
+
+```jsx
+{
+"AB":1,
+"CD":2,
+"DEF":5
+}
+```
+
+With this simple mapping above, we can breakdown a string `ABCDEF` into the list `[1,2,5]` . The number of mappings that a tokeniser has is known as its vocabulary size. In the paper, they use a vocabulary size of 37000 tokens that are chosen using Byte Pair Encoding. 
+
+Often times, tokenisers are combined with an embedding layer which provides a real-number representation for each token. An embedding layer is just a simple lookup where we provide an index and they return an embedding, which is just a list of floats that the model has learnt during training to represent the semantic meaning of this token.
+
+There are two main reasons why we might want to use an embedding over a one-hot encoding. Firstly, embeddings scale better than one-hot encodings. 
+
+It's prohibitively expensive to store an equivalent one-hot encoded vector. Each row would have 37,000 values, most of which would just be 0. 
+
+Secondly, embeddings can capture more information due to their real-number values, making them an ideal choice.
+
+**In our case, each token has an embedding dimension of 512, or 512 floats for each individual token.**
+
+### Positional Encoding
+
+> The original transformer used a sinusodial embedding which gives a more absolute concept of position. Current work with implementations such as Rotatory Embeddings provide a way for transformers to learn more relative representations of positions in the sequence.
+
+![Positional Encoding](/positional-encoding.png)
+
+Right now our embedding conveys a sense of semantic meaning. But there's no positional information. Let's take the two sentences below to understand what this means.
+
+1. There was a car in front of me, it was red
+2. There was a car in front of me, it was challenging to swerve around it
+
+There are a few things to notice about this sentence
+
+- `it` appears twice - but it refers to different things each time. In the first instance, it refers to the act of driving around the car while the second instance refers to the car.
+- `it` is heavily context dependent, in the first sentence, `it` refers to the car instead!
+
+As a result, we use positional encodings to imbue our model's embeddings with information on the position of each word. The model learns these transformations over time. These encodings are computed once and then frozen in time.
+
+> In the paper, they state that they experimented with learned positional embeddings and found that the two versions produced nearly identical results. 
+
+![Positional Encoding](/positional-encoding.png)
+
+### Scaled-Dot Product Attention and Multi-Head Attention
+
+Attention is a method by which we can compute a new representation of a token given some sort of weighted sum of the representations of the tokens around it. This is done through Scaled Dot Product Attention.
+
+#### Scaled Dot Product Attention
+
+![Transformer Attention](/transformer-attention.png)
+
+Scaled Dot Product Attention is simply an operation by which we can calculate a weighted sum of values
+
+$$
+Attention(Q,K,V) = softmax(\frac{QK^{T}}{\sqrt{d_k}})V
+$$
+
+Note that Q,K and V do not have the be the same matrix. Q and K will have the same dimensions `d_k` and V will have the dimensions of `d_v` . In the paper, the model has an embedding dimension `d_model` of `512` where `d_k = d_v = d_model` .
+
+There are two important things to note here
+
+1. We scale $QK^T$ by $\sqrt{d_k}$ because of numerical instability. This is because the product of two matrices has a significantly greater variance and tends to lead to large values being generated. Scaling down allows for a smaller value to be used when computing the softmax, resulting in better results
+2. The Dot Product is chosen because it is much faster and more space-efficient in practice, since it can be implemented using highly optimised matrix multiplication code.
+
+The model tunes the values of Q and K so that it learns how to assign the proper weightage to each token for a given sequence. We can intuitively understand the Query matrix as a representation of a sequence seeking a match while the Key matrix is a representation of a sequence's meaning.
+
+![transformer-softmax](/transformer-softmax.png)
+
+#### Multi-Head Attention
+
+![MHA-Formula](/MHA-attention-formula.png)
+
+Multi-Head attention takes advantage of the Scaled Dot Product Attention mechanism. While the computation complexity is the same as that of a Single-head attention block, the authors find that it performs better.
+
+This is because it allows the model to jointly attend to information from different representation subspaces at different positions. In the paper, they used `8` different heads.
+
+![MHA-Attention](/mha-attention-visualisation.png)
+
+Note that at the end when we derive our H matrix, it has dimensions $(n, d_v)$ but with the help of $w^o$, we’re able to scale our output back to $d_{model}$.
+
+
+
+#### Decoder Masks
+
+In the decoder, we apply a mask to our attention matrix which only allows softmax for each row to be calculated using only the corresponding token for that row and the ones before it. This prevents our model from being able to make predictions using future states.
+
+#### Cross Attention vs Self-Attention
+
+We can see here that our model uses two forms of attention. 
+
+![Transformer Attention](/transformer-attentions-type.png)
+
+The first is Self-Attention, where the Q, K and V matrices are derived from the same input vector (As seen above). However, we also have Cross-Attention, where the Q,K and V matrices are not. 
+
+In the example above, our decoder Multi-Head attention block derives Q and K from the encoder’s output and V from the output of the previous Multi-Head Attention block. 
+
+> Note that the same encoder output is passed to every single decoder block. Hence, information is encoded once and then cached for every subsequent inference or training call
+>
+
+## Encoders and Decoders
+
+> Most transformer models nowadays are decoder only because decoders tend to shine more at text generation work. Encoders helps to bridge the gap between sequences that exist in two separate embedding spaces - which is where encoder-decoder architectures tend to shine. 
+
+![Transformer Architecture](/transformer-architecture.png)
+
+An encoder maps an input sequence of symbolic representations to a sequence of continous representations. This is then used by the decoder to generate an output sequence in an auto-regressive manner by consuming the previously generated symbols as additional input when generating the next token.
+
+Using an Encoder and Decoder which separately parse an input and output sequence allows our model to work with two fundamentally different embedding spaces. This is because the **Output and Input Embeddings can be totally different.** This results in different vocabulary sizes and different representations. This allows our model to better learn the features of each language and in turn be able to closely relate them
+
+In the paper, the authors chose to use a total of 6 encoder blocks and 6 decoder blocks. By using an encoder and only passing in the final output of the encoder ( without any mask ), the model is able to learn how to attend over all positions in the input sequence.
+
+### Feed Forward Network
+
+> Most models nowadays utilise SwiGLU because it provides better performance and stability. See paper [here](https://arxiv.org/pdf/2002.05202.pdf) by google where they do the abalation
+
+Both the encoder and decoders use a Feed Forward Network. Intuitively, the Multi-Head attention extracts information from the target or input sequence from different representations and the feed forward network is able to combine and make sense of it.
+
+In the case of our model, we can represent the output as a 2 layer MLP with a RELU in between each layer.
+
+$$
+FFN(x) = max(0,xW_1+b_1)W_2 + b_2
+$$
+
+Conventionally, we also add in a dropout layer after computing the RELU. In the paper, W1 is (512,2048) and W2 is (2048,512).
+
+### Token Choice
+
+There are a few different ways of doing token choice
+
+1. Beam Search
+2. Greedy Decoding
+
+In the paper, they utilised greedy decoding but these are two valid options to consider.
+
+#### Beam Search
+
+![Beam Search](/beam-search.png)
+
+We track a few potential sequences that we call beams and we prune our branch at each point, notice how this results in more overhead because we need more inference calls to be able to generate the right conditional distributions for each individual beam
+
+Tends to give better results because we don’t track the local minimum
+
+#### Greedy Decoding
+
+We just choose the most probable token at each time step. This is the easiest to implement but also tends to give the worst results. It’s the default choice for most models due to simplicity of implementation
+
+## Training
+
+### Label Smoothing
+
+In order to reduce the propensity of the model to overfit, they utilise label smoothing
+
+$$
+x_i^{\prime} = x_i \times (1 - \epsilon) + \frac{\epsilon}{k}
+$$
+
+where k is the number of classes and $\epsilon$ is the smoothing parameter. Therefore if we had a case where k = 2 and $\epsilon$  = 0.1, where our original targets were [0,1], then label smoothing would modify our new target to be [0.05.0.95]
+
+This is a form of regularization
+
+## Relevant Resources
+
+- [Sebastian Raschka on Self-Attention](https://www.youtube.com/watch?v=0PjHri8tc1c)
+- [Umar Jamil Attention Is All You Need](https://www.youtube.com/watch?v=bCz4OMemCcA&t=2377s)
+- [The Annotated Transformer](https://nlp.seas.harvard.edu/annotated-transformer/)
+- [Beam Search](https://cjlovering.github.io/posts/beam-search/index.html)
+
