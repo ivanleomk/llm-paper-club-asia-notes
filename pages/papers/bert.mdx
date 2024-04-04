@@ -1,0 +1,153 @@
+# BERT
+
+> Original Paper: https://arxiv.org/abs/1810.04805
+
+## Summary
+
+BERT (Bidirectional Encoder Representations From Transformers) was first released by Google in 2018 and was [powering a significant amount of improvements in their search engine results](https://blog.google/products/search/search-language-understanding-bert/). BERT was unique in pioneering the concept of a bidirectional representation by conditioning on both the left and right context in the input. 
+
+## What is Bert?
+
+### Model Specifications
+
+BERT is a transformer based encoder model which was originally released in two variants - Base and Large. The differences between the two are that
+
+| Model | Encoder Layers | FFN Dimensions | Embedding Dimensions | Attention Heads |
+| --- | -- | -- | -- | -- |
+| Base | 12  | 3072 | 768 | 12
+| Large | 24 | 4096 | 1024 | 16
+
+It used the word piece tokenizer that allowed for subword tokenization and has a vocabulary of ~30,000 tokens. We can see the original vocabulary mapping [here](https://github.com/microsoft/SDNet/blob/master/bert_vocab_files/bert-base-uncased-vocab.txt).
+
+
+```
+[UNK]
+[CLS]
+[SEP]
+[MASK]
+```
+
+These respective tokens are special tokens in BERT
+- `[SEP]`: This was used for BERT to learn the boundary between two sentences for its NSP task ( More below)
+- `[MASK]` : This was used to train BERT to learn a bi-directional encoding representation (More below)
+- `[UNK]`: This demarcates unknown tokens
+- `[CLS]`: This is used as a classification token and we normally fit a linear layer over this for classification tasks
+
+### BERT vs GPT
+
+Most people are much more with GPT which takes in an input and spits out a next token. We can then append this token to our original input and recursively generate more text. We normally use Prompt engineering with these GPT models to get some desired result.
+
+```
+System: You are a world class classifier able to detect user sentiment precisely. You are about to be passed a sentence from a user, output a specific classification label from the following
+- Happy
+- Neutral
+-Sad
+User: I can't wait to learn more about BERT!
+Assistant:
+```
+
+But when it comes to Bert, we need to fine-tune the model by adding a final layer on top of BERT.
+
+## Training 
+
+> For example, in OpenAI GPT, the authors use a left-to-right architecture, where every token can only at- tend to previous tokens in the self-attention layers of the Transformer (Vaswani et al., 2017). Such restrictions are sub-optimal for sentence-level tasks, and could be very harmful when applying fine-tuning based approaches to token-level tasks such as question answering, where it is crucial to incorporate context from both directions.
+
+BERT was trained using a two main tasks - masking tokens in a sentence and predicting if a sentence goes after another. These were meant to help it learn token and sentence level representations. 
+
+By teaching BERT to learn these representations, we can get expert-level performance for certain tasks without the need for hand-crafted task-specific architectures.
+
+![BERT Training Process](/BERT_Training.png)
+
+### Dataset
+
+BERT was trained using an unsupervised approach using the BooksCorpus ( 800M Words ) and English Wikipedia ( 2,500M Words )
+
+```
+Input: [CLS]s1[SEP]s2[SEP]
+Output: Final Embedding Representation
+```
+
+The first token of every sequence is always a special classification token (`[CLS]`). The final hidden state corresponding to this token is used as the aggregate sequence representation for classification tasks.
+
+Sentence pairs are packed together into a single sequence. We differentiate the sentences in two ways. First, we separate them with a special token (`[SEP]`). Second, we add a learned embedding to every token indicating whether it belongs to sentence A or sentence B.
+
+### Training Tasks
+
+#### Masked Token Prediction
+
+> In order to train a deep bidirectional representation, the authors simply mask some percentage of the input tokens at random, and then predict those masked tokens. In this case, the final hidden vectors corresponding to the mask tokens are fed into an output softmax over the vocabulary, as in a standard LM.In all of our experiments, we mask 15% of all WordPiece tokens in each sequence at random.
+
+In short, here's how it would work 
+
+1. Take a sentence pair. `[CLS]s1[SEP]s2[SEP]`
+2. Tokenize it into its individual embedding and randomly select 15% of tokens to be replaced with the `[MASK]` token's id 
+3. Run BERT through and for each masked token (eg. the 4th token ), we take the output embeddings and pass it through a linear layer to get a distribution with ~30,000 tokens and then we compute the Cross Entropy-Loss.
+
+Important here to note that the chosen tokens were masked in the following proportion.
+
+- 80% : Replaced with the `[Mask]` token 
+- 10% : Replaced with a random token 
+- 10% : No Replacement at all
+
+#### Next Sentence Prediction (NSP)
+
+> Specifically, when choosing the sentences A and B for each pre- training example, 50% of the time B is the actual next sentence that follows A (labeled as IsNext), and 50% of the time it is a random sentence from the corpus (labeled as NotNext)
+
+### Abalations
+
+They did some abalations on the BERT model by evaluating these different configurations
+
+- No NSP : It's only trained using the masked LM and without the Next Sentence Prediction (NSP) task
+- LTR & No NSP : It's trained using a standard left-to-right LM rather than a Masked Language Model. They didn't have a NSP task too
+- Bi-LSTM : They added a randomly initialised Bidirectional LSTM in the final output layer in the final test
+
+![Abalation Studies](/BERT_Abalations.png)
+
+The most important metric here is the SQuAD performance which requires a strong bidirectional understanding since a model would have to understand both the context and the question in order to generate a good answer.
+
+In particular, the loss of the MLM task results in a drop of almost 10% in performance, which is huge. 
+
+
+
+## Fine-Tuning
+
+BERT can be fine-tuned by adding a linear layer and other components on top of it's final output layer.
+
+### Paper Benchmarks
+
+![Bert Performance on GLUE](/BERT_Performance.png)
+![Bert Swag](/BERT_SWAG.png)
+![BERT_SQuAD](/BERT_SQUAD.png)
+
+There were a few datasets that BERT was fine-tuned and then evaluated on. It's important here to note just how much BERT beat the other SOTA models at that time. 
+
+- SQuAD : This is a Question and Answer benchmark which determines the ability of a model to find a relevant portion of the context given a question. The authors benchmarked BERT on the v1 and v2 of the SQuAD dataset. Notably, v2 had test portions where the answer could not be found.
+- GLUE: This is a dataset designed to test a model's ability to understand language by evaluating it on tasks such as semantic similarity, entailment etc.
+- SWAG consists of 113k multiple-choice questions that are based on video captions from LSMDC or ActivityNet Captions. Each question presents a scenario with four possible outcomes, where the correct answer is the actual subsequent event from the video, and the three incorrect answers are carefully crafted to mislead AI systems but remain obvious to humans 
+
+Note that for each of these tasks, all it took was adding an input layer and applying a softmax at times to adapt BERT's architecture for the task.
+
+| Benchmark | Input | Output |
+| -- | -- | -- |
+| SWAG | They added an input sequence with the concatenated given sentence and continutation | The output sequence was a final vector whose dot product denotes a choice ( so a linear layer that corresponds to 4 possible choices ) |
+| GLUE | They pass in the input question and passage as a single packed sequence | They introduce a start and vector ( so two MLPs ) that generates a prob of each token being the start or end in the sequence once they use a softmax on it | 
+| Squad | They concatenate context to a question in the same input | Output uses two MLPS with the sum of the log probabilities of the start and end tokens being used as the loss function |
+
+
+> The probability of word `i` being the start or end of the answer span is given by $$P_i = \frac{e^{S \cdot T_i}}{\sum e^{S \cdot T_j}}$$ with a loss function being the log probabilities of the start/end token. 
+
+
+### DistilBert
+
+Google eventually released ~24 variants of BERT which were distilled significantly while retaining ~95% of the original performance in this paper [Well-Read Students Learn Better: On the importance of Pre-training Compact Models](https://arxiv.org/abs/1908.08962).
+
+
+## Food For Thought
+
+1. Are these tasks that BERT was trained on relevant to what we wanted, specifically NSP? It seems like it might not be super relevant when we look at something like RoBERTa which eliminated it
+2. BERT seems to use [learnt positional embeddings](https://ai.stackexchange.com/questions/37021/which-positional-encoding-bert-use) but I couldn't find a specific source inside the paper as to how these embedding layers were calculated
+3. Have you used BERT in your work? What interesting applications did you apply it on and how did it perform in the chosen task?
+
+## Useful Resources
+
+- [Hugging Face: BERT 101](https://huggingface.co/blog/bert-101)
