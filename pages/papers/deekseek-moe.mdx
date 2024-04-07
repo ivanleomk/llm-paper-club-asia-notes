@@ -1,0 +1,185 @@
+# DeepSeekMoE: Towards Ultimate Expert Specialization in Mixture-of-Experts Language Models
+
+> This paper introduces two new architecture choices - shared experts and fine-grained expert segmentation. When benchmarked against Google's GShard model, it achieves comparable if not better performance. 
+
+## MOE Models
+
+A Mixture of Experts (MOE) model involves two main things - training sub networks which eventually specialize certain tokens/tasks and a Router which learns which sub network to route a token to. For transformers, we implement this using a MOE layer which replaces the traditional FFN component of an attention block.
+
+Fundamentally, using a MOE model means we are trading VRAM for compute because it allows us to scale up the number of total parameters in our model while keeping the number of active parameters constant. Therefore, the compute to run inference ( in terms of FLOPs ) remains constant.
+
+
+![Normal MOE Block](/MOE-Block.png)
+
+Here are some important characteristics of Mixture of Expert networks
+
+- Sparse: Not all of the networks weights are connected to one another ( due to experts being seperate sub network that don't share parameters )
+- Training: They can be trained faster than their dense counterparts with the same number of total parameters because the computational graph is smaller due to lower number of nodes involved in each forward pass. MOE-Mamba reaches the same performance as Mamba in 2.2x less training steps while preserving the inference performance gains of Mamba against the Transformer. 
+- High VRAM: Since every expert must be loaded into memory for the model to run an inference step
+- Difficult to Fine-Tune: These models seem to overfit quite easily so fine-tuning them for specific tasks has been difficult.
+- Challenging to Optimize: Complex to perform - if we load balance requests to the wrong expert due to the appropriate expert being overwhelmed, then quality of response degrades. Possibility of wasted capacity if specific experts are also never activated.
+
+This means that we would then have a gate that learns how to assign tokens to the experts. There are a few different ways to decide how to sample the experts to be chosen. They are
+
+- Top-k : Use a softmax function based on the output of the addition and normalization component of the attention block
+- Top-k with noise: Add some noise before applying softmax and sampling
+- Random Routing : Softmax for the first expert and then random sampling of the second based on softmax outputs
+- Expert Capacity : Calculate which experts are avaliable based on the average number of tokens to process per expert, then define a capacity multiple (Eg. each expert has capacity limit of 1.5x) - see below where C represents the capacity multiple, T the number of tokens, N the number of experts and LF the token capacity of an expert
+
+$$
+LF = \frac{CT}{N}
+$$
+
+Note that we want to make sure each expert has a roughly equal distribution of tokens to proccess because of two main reasons
+
+1. Experts can be overwhelmed if they keep getting chosen to proccess tokens
+2. Experts will not learn if they never recieve tokens to proccess
+
+### Mixtral 8x7b
+
+Mixtral 8x7b uses a collection of Feed Forward Networks ( 8 Experts with 2 hidden layers ). It doesn't have 8x Mixtral 7Bs
+
+```
+MixtralForCausalLM(
+  (model): MixtralModel(
+    (embed_tokens): Embedding(32000, 4096)
+    (layers): ModuleList(
+      (0-31): 32 x MixtralDecoderLayer(
+        (self_attn): MixtralAttention(
+          (q_proj): Linear4bit(in_features=4096, out_features=4096, bias=False)
+          (k_proj): Linear4bit(in_features=4096, out_features=1024, bias=False)
+          (v_proj): Linear4bit(in_features=4096, out_features=1024, bias=False)
+          (o_proj): Linear4bit(in_features=4096, out_features=4096, bias=False)
+          (rotary_emb): MixtralRotaryEmbedding()
+        )
+        (block_sparse_moe): MixtralSparseMoeBlock(
+          (gate): Linear4bit(in_features=4096, out_features=8, bias=False)
+          (experts): ModuleList(
+            (0-7): 8 x MixtralBLockSparseTop2MLP(
+              (w1): Linear4bit(in_features=4096, out_features=14336, bias=False)
+              (w2): Linear4bit(in_features=14336, out_features=4096, bias=False)
+              (w3): Linear4bit(in_features=4096, out_features=14336, bias=False)
+              (act_fn): SiLU()
+            )
+          )
+        )
+        (input_layernorm): MixtralRMSNorm()
+        (post_attention_layernorm): MixtralRMSNorm()
+      )
+    )
+    (norm): MixtralRMSNorm()
+  )
+  (lm_head): Linear(in_features=4096, out_features=32000, bias=False)
+)
+```
+
+Typically we find that the expert specialization is on a token rather than a subject level. If specialization is indeed on a subject level, we wouldn't see the whitespace being allocated to a single expert on average/specific sequential tokens being allocated.
+
+![Mixtral Tokens](/Mixtral%20Tokens.png)
+
+This problem gets worse the deeper we get into the network - see Layer 0 -> Layer 31
+
+
+## Architecture 
+
+Deepseek MOE proposes two new architectural changes - Fine-Grained Expert Segmentation and Shared Experts
+
+![Deepseek Changes](/deepseek-arch.png)
+
+### Fine-Grained Expert Segmentation
+
+Intuitively, when tokens are routed to more experts, there's a higher chance of knowledge being decomposed and learned in different experts. Fine-Grained Expert Segmentation consists of increasing (1) the number of experts and (2) the number of activated experts. This is because by increasing the number of total and activated experts for each forward pass, we increase the number of potential combinations. This increases the potential for achieving more accurate and targetted knowledge acquisition.
+
+They do so by splitting up each expert FFN into $m$ smaller experts by reducing the FFN dimension to $\frac{1}{m}$ of its original size. They also correspondingly increase the number of activated experts by $m$ times to keep the computation cost constant.
+
+### Shared Expert Isolation
+
+Typically with a MOE, we pick $k$ experts on each forward pass. This means that even if we're processing the same bit of information, over time we might have multiple experts converging in acquiring shared knowledge. This results in a redundancy in expert parameters.
+
+Therefore, we set $m$ experts to always be activated on every expert pass. These experts are used to consolidate shared knowledge and free up additional parameters for other experts.
+
+![Deepseek Equation](/deepseek-moe-layer.png)
+
+We can see the shared experts accounted here in the equation.
+
+### Load Balance
+
+They introduce a device and expert level loss to reduce the instance of load imbalance. Load imbalance is when a particular expert is used frequently more than it should be. As a result, this causes other experts from sufficiently training and worsens computation bottlenecks.
+
+$$
+L_{ExpBal} = \alpha_1 \sum_{i=0}^{N^{\prime}} \sum_{t=1}^{T} C(i) \times S_{i,j}
+$$
+
+Where 
+- $N^{\prime}$ is the number of experts that are dynamically chosen on each round
+- $\alpha_1$ is a hyper-parameter 
+- $K^{\prime}$ is the total number of experts to choose from 
+- $C(i)$ is the indicator function which determines if for the $t$-th token, the $i$-th expert was chosen.
+- $T$ is the total number of tokens in the sequence
+
+We also have a similar loss being implemented for the device level loss
+
+$$
+L_{ExpBal} = \alpha_1 \sum_{i=0}^{N^{\prime}} \sum_{t=1}^{T} C(i) \times S_{i,j}
+$$
+
+TODO: Device Level Loss ( Not too sure what P_i and J_i are supposed to be derived from )
+
+## Results
+
+The initial validation is conducted on a smaller model 
+
+- Transformer Layers : 9
+- Dimension : 1280
+- 10 Attention Heads 
+- 16 experts ( Since the total number of expert parameters equals 16 times that of a standard FFN )
+
+Under this configuration, each MoE model has approximately 2B total parameters, with the number of activated parameters around 0.3B. They then benchmark it against 3 other MOE models which have an equivalent number of activated params ( ~ 0.2B since they use 1 expert it seems )
+
+![Initial Validation](/deepseek-validation.png)
+
+Importantly, Deepseek MoE consistently beats out GShard with the same number of active parameters and training dataset. We find that GShard only beats out Deepseek MoE when it has ~1.5x more parameters to utilise.
+
+![GShard Equivalent](/deepseek-moe-gshard-equiv.png)
+
+> Instead, we configure 16 shared experts where each expert has the same number of parameters as a standard FFN. This architecture mimics a dense model with 16 times standard FFN parameters. From the table, we find that DeepSeekMoE nearly approaches the performance of Dense×16, which sets the strict upper bound of MoE models in terms of the model capacity. These results suggest that, at least at the scale of about 2B parameters and 100B training tokens, the performance of DeepSeekMoE aligns closely with the theoretical upper bound of MoE models
+
+
+### Ablation Studies 
+
+We can see that we get a huge boost in performance with a single shared expert and increasing the expert segmentation
+
+> Note that total and activated parameter count remain the same in these comparisons, therefore any boost is a result of architectural change
+
+![Ablation Study](/deepseek-ablation-study.png)
+
+Huge improvements in ARC-Easy, TriviaQA and Natural Questions are seen with a shared expert. These seem to be benchmars where we have a large amount of shared knowledge so allowing for a more efficient usage of expert parameters. 
+
+We also see further improvements as we increase the number of experts while decreasing dimensionality of expert parameters accordingly. 
+
+### Knowledge Redundancy
+
+![Disabling Experts](/deepseek-disabled-experts.png)
+
+There are a few key things to note from this 
+
+- **Experts are more specialized**: If experts have a higher degree of specialization, then this means that disabling top experts will results in a significant drop in performance. They test this by masking a ratio of experts with the highest routing probability and then selecting top-K experts from the remaninig routed experts. This sensitivity suggests a lower level of parameter redundancy in DeepSeekMoE, since each routed expert is more irreplaceable. In contrast, GShard exhibits greater redundancy among its expert parameters, so it can buffer the performance drop when top routed experts are disabled.
+
+- **Shared Experts are doing a lot**: They also remove the shared expert and replace it with an additional routed expert. This results in an increase in Pile loss from 1.8 to 2.4, indicating that the shared expert captures fundamental and essential knowledge not shared with routed experts, making it irreplaceable by routed ones.
+
+- **Fine Grained Experts work well**: Despite having $1/4$ of the parameter count of a GShard expert, the individual experts are able to perform much better. We can see this from the chart below 
+
+![Flexible Experts](/deepseek-moe-expert-flexibility.png)
+
+By just using 4 experts ( or just 50% of the total parameters that the 2 GShard Experts are using ), we can match the performance on the Pile.
+
+
+### LLama-7b 
+
+![Deepseek Llama 7b](/deepseek-llama-7b.png)
+
+We can see that Deepseek-MOE-16B seems to outperform Llama-7b on a variety of different tasks. It seems to be strong in language modelling and knowledge-intensive tasks such as Pile, HellaSwag, TriviaQA and Natural Questions. 
+
+FFN networks in MOE systems tend to have much more parameters than their attention counterparts and involve more complex operations (Eg. Routing). This gives them the ability to memorise information and perform reasoning. 
+
+However, it seems like when it comes to tasks that deal with attention capacity, it doesn't do so well. (TODO: Add this in)
